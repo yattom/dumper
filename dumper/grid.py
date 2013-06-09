@@ -1,5 +1,6 @@
 import Tkinter
 import threading
+import time
 
 class Grid(object):
     class Dim:
@@ -7,10 +8,11 @@ class Grid(object):
             self.width = width
             self.height = height
 
-    def __init__(self, dim=(10, 10)):
+    def __init__(self, dim=(10, 10), wait=0):
         self.canvas = Tkinter.Canvas(width=500, height=500)
         self.canvas.pack()
         self.dim = Grid.Dim(*dim)
+        self.wait = wait
         self.draw_gridlines()
         self.create_texts()
 
@@ -44,6 +46,7 @@ class Grid(object):
         if cluster:
             self.dump_cluster(cluster)
         self.canvas.update_idletasks()
+        if self.wait: time.sleep(self.wait)
 
     def dump_cluster(self, text):
         if isinstance(text, str):
