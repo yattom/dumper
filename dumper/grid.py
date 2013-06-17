@@ -3,6 +3,10 @@ import threading
 import time
 
 class Grid(object):
+    WIDTH = 500
+    HEIGHT = 500
+    RIM_SIZE = 20
+
     class Dim:
         def __init__(self, width, height):
             self.width = width
@@ -12,7 +16,7 @@ class Grid(object):
         initialized = threading.Condition()
         initialized.acquire()
         def run():
-            self.canvas = Tkinter.Canvas(width=500, height=500)
+            self.canvas = Tkinter.Canvas(width=Grid.WIDTH, height=Grid.HEIGHT)
             self.canvas.pack()
             self.dim = Grid.Dim(*dim)
             self.wait = wait
@@ -30,17 +34,29 @@ class Grid(object):
         initialized.wait()
         initialized.release()
 
+    def cell_width(self):
+        return float(Grid.WIDTH - Grid.RIM_SIZE * 2) / self.dim.width
+
+    def cell_height(self):
+        return float(Grid.HEIGHT - Grid.RIM_SIZE * 2) / self.dim.height
+
+    def cell_left(self, col):
+        return col * self.cell_width() + Grid.RIM_SIZE
+
+    def cell_top(self, row):
+        return row * self.cell_height() + Grid.RIM_SIZE
+
     def draw_gridlines(self):
         for col in range(self.dim.width + 1):
-            self.canvas.create_line(col * 460 / self.dim.width + 20, 20, col * 460 / self.dim.width + 20, 480, fill='black')
+            self.canvas.create_line(self.cell_left(col), Grid.RIM_SIZE, self.cell_left(col), Grid.WIDTH - Grid.RIM_SIZE, fill='black')
         for row in range(self.dim.height + 1):
-            self.canvas.create_line(20, row * 460 / self.dim.height + 20, 480, row * 460 / self.dim.height + 20, fill='black')
+            self.canvas.create_line(Grid.RIM_SIZE, self.cell_top(row), Grid.HEIGHT - Grid.RIM_SIZE, self.cell_top(row), fill='black')
 
     def create_texts(self):
         self.text_ids = {}
         for col in range(self.dim.width):
             for row in range(self.dim.height):
-                self.text_ids[(col, row)] = self.canvas.create_text(col * 460 / self.dim.width + 20 + (460 / 2) / self.dim.width, row * 460 / self.dim.height + 20 + (460 / 2) / self.dim.height, text='')
+                self.text_ids[(col, row)] = self.canvas.create_text(col * self.cell_width() + Grid.RIM_SIZE + self.cell_width() / 2, self.cell_top(row) + self.cell_height() / 2, text='')
 
     def draw_text(self, col, row, text, color='blue'):
         id = self.text_ids.get((col, row), -1)
