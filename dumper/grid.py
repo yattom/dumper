@@ -9,19 +9,26 @@ class Grid(object):
             self.height = height
 
     def __init__(self, dim=(10, 10), wait=0):
-        self.canvas = Tkinter.Canvas(width=500, height=500)
-        self.canvas.pack()
-        self.dim = Grid.Dim(*dim)
-        self.wait = wait
-        self.draw_gridlines()
-        self.create_texts()
-
+        initialized = threading.Condition()
+        initialized.acquire()
         def run():
+            self.canvas = Tkinter.Canvas(width=500, height=500)
+            self.canvas.pack()
+            self.dim = Grid.Dim(*dim)
+            self.wait = wait
+            self.draw_gridlines()
+            self.create_texts()
+
+            initialized.acquire()
+            initialized.notifyAll()
+            initialized.release()
             self.canvas.mainloop()
 
         thread = threading.Thread(target=run)
         thread.daemon = True
         thread.start()
+        initialized.wait()
+        initialized.release()
 
     def draw_gridlines(self):
         for col in range(self.dim.width + 1):
@@ -58,6 +65,7 @@ class Grid(object):
         for row, l in enumerate(lines):
             for col, c in enumerate(l):
                 self.draw_text(col, row, c)
+
 
 if __name__=='__main__':
     g=Grid(dim=(15, 10))
