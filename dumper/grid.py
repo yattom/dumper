@@ -1,5 +1,6 @@
 import Tkinter
 import threading
+import Queue
 import time
 
 class Grid(object):
@@ -13,27 +14,33 @@ class Grid(object):
             self.height = height
 
     def __init__(self, dim=(10, 10), wait=0):
-        initialized = threading.Condition()
-        initialized.acquire()
+        self.queue = Queue.Queue()
         def run():
+            self.root = Tkinter.Tk()
             self.canvas = Tkinter.Canvas(width=Grid.WIDTH, height=Grid.HEIGHT)
             self.canvas.pack()
             self.dim = Grid.Dim(*dim)
             self.wait = wait
-            self.draw_gridlines()
-            self.create_texts()
+            self._draw_gridlines()
+            self._create_texts()
 
-            initialized.acquire()
-            initialized.notifyAll()
-            initialized.release()
-            self.canvas.mainloop()
+            self.canvas.after(50, self.check_queue)
+            self.root.mainloop()
 
         thread = threading.Thread(target=run)
         thread.daemon = True
         thread.start()
-        initialized.wait()
-        initialized.release()
 
+    def check_queue(self):
+        try:
+            cmd = self.queue.get(block=True)
+
+            getattr(self, cmd[0])(*cmd[1:])
+            self.canvas.update_idletasks()
+        except Queue.Empty:
+            pass
+        self.canvas.after(50, self.check_queue)
+        
     def cell_width(self):
         return float(Grid.WIDTH - Grid.RIM_SIZE * 2) / self.dim.width
 
@@ -46,19 +53,23 @@ class Grid(object):
     def cell_top(self, row, col):
         return row * self.cell_height() + Grid.RIM_SIZE
 
-    def draw_gridlines(self):
+    def _draw_gridlines(self):
         for col in range(self.dim.width + 1):
             self.canvas.create_line(self.cell_left(row, col), Grid.RIM_SIZE, self.cell_left(row, col), Grid.WIDTH - Grid.RIM_SIZE, fill='black')
         for row in range(self.dim.height + 1):
             self.canvas.create_line(Grid.RIM_SIZE, self.cell_top(row, col), Grid.HEIGHT - Grid.RIM_SIZE, self.cell_top(row, col), fill='black')
 
-    def create_texts(self):
+    def _create_texts(self):
         self.text_ids = {}
         for col in range(self.dim.width):
             for row in range(self.dim.height):
                 self.text_ids[(col, row)] = self.canvas.create_text(self.cell_left(row, col) + self.cell_width() / 2, self.cell_top(row, col) + self.cell_height() / 2, text='')
 
     def draw_text(self, col, row, text, color='blue'):
+        cmd = ('_draw_text', col, row, text, color)
+        self.queue.put(cmd)
+
+    def _draw_text(self, col, row, text, color):
         id = self.text_ids.get((col, row), -1)
         if id == -1: return
         self.canvas.dchars(id, 0, 100)
@@ -68,7 +79,6 @@ class Grid(object):
     def dump(self, cluster=None):
         if cluster:
             self.dump_cluster(cluster)
-        self.canvas.update_idletasks()
         if self.wait: time.sleep(self.wait)
 
     def dump_cluster(self, text):
@@ -94,13 +104,13 @@ class Hex(Grid):
         else:
             return col * self.cell_width() + self.cell_width() / 2 + Grid.RIM_SIZE
 
-    def draw_gridlines(self):
+    def _draw_gridlines(self):
         self.cells = {}
         for col in range(self.dim.width):
             for row in range(self.dim.height):
-                self.cells[(row, col)] = self.draw_cell(row, col)
+                self.cells[(row, col)] = self._draw_cell(row, col)
 
-    def draw_cell(self, row, col):
+    def _draw_cell(self, row, col):
         x = self.cell_left(row, col)
         y = self.cell_top(row, col) - self.cell_height() * 0.125
         w = self.cell_width()
